@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-  Modal, KeyboardAvoidingView, Platform,
+  KeyboardAvoidingView, Platform, Animated, PanResponder, useWindowDimensions,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TTViewRegistry } from '../TTViewRegistry'
@@ -26,8 +26,44 @@ const BRAND = '#1925AA'
  *
  * Activated via deep link: tooltiptour://inspect?session=xxx&base=...&mode=element
  */
+const BANNER_H = 48
+
 export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
-  const insets = useSafeAreaInsets()
+  const insets  = useSafeAreaInsets()
+  const { height } = useWindowDimensions()
+
+  // ── Draggable banner ──────────────────────────────────────────────────────
+  const bannerTop     = useRef(new Animated.Value(0)).current
+  const dragStartTop  = useRef(0)
+
+  // Initialise once safe-area insets are known
+  useEffect(() => {
+    if (insets.top > 0) {
+      bannerTop.setValue(insets.top)
+      dragStartTop.current = insets.top
+    }
+  }, [insets.top])
+
+  const panResponder = useRef(PanResponder.create({
+    onStartShouldSetPanResponder: () => true,
+    onMoveShouldSetPanResponder:  () => true,
+    onPanResponderGrant: () => {
+      (bannerTop as any).stopAnimation((v: number) => { dragStartTop.current = v })
+    },
+    onPanResponderMove: (_, gs) => {
+      const next    = dragStartTop.current + gs.dy
+      const minY    = 0
+      const maxY    = height - BANNER_H - 20
+      bannerTop.setValue(Math.min(Math.max(next, minY), maxY))
+    },
+    onPanResponderRelease: (_, gs) => {
+      const next    = dragStartTop.current + gs.dy
+      const clamped = Math.min(Math.max(next, 0), height - BANNER_H - 20)
+      dragStartTop.current = clamped
+      bannerTop.setValue(clamped)
+    },
+  })).current
+
   const [inspMode, setInspMode]   = useState<InspectorMode>('navigate')
   const [phase, setPhase]         = useState<InspectorPhase>('tapping')
   const [capturedId, setCapturedId] = useState('')
@@ -169,9 +205,13 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
         </KeyboardAvoidingView>
       )}
 
-      {/* ── Top banner — sits below status bar, only this view catches taps ── */}
-      <View style={[styles.banner, { paddingTop: insets.top }]}>
+      {/* ── Top banner — draggable, only this view catches taps ── */}
+      <Animated.View style={[styles.banner, { top: bannerTop }]}>
         <View style={[styles.bannerInner, { backgroundColor: BRAND }]}>
+          {/* Drag handle */}
+          <View style={styles.dragHandle} {...panResponder.panHandlers}>
+            <Text style={styles.dragIcon}>⠿</Text>
+          </View>
           {mode === 'page' ? (
             <>
               <Text style={styles.bannerPageText}>Navigate to your screen</Text>
@@ -198,19 +238,27 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
             <Text style={styles.closeBtnText}>✕</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   banner: {
-    position: 'absolute', top: 0, left: 0, right: 0,
+    position: 'absolute', left: 0, right: 0,
     paddingHorizontal: 16,
   },
   bannerInner: {
     flexDirection: 'row', alignItems: 'center',
-    borderRadius: 0, paddingHorizontal: 16, height: 48,
+    borderRadius: 8, paddingHorizontal: 12, height: 48,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 6,
+  },
+  dragHandle: {
+    paddingHorizontal: 8, paddingVertical: 12, marginRight: 4,
+  },
+  dragIcon: {
+    color: 'rgba(255,255,255,0.55)', fontSize: 16, lineHeight: 18,
   },
   tabRow: { flex: 1, flexDirection: 'row', gap: 4 },
   tab: {
