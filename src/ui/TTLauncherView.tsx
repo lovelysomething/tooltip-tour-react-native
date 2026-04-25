@@ -35,20 +35,28 @@ export function TTLauncherView() {
     // We re-check config when session ends to decide FAB vs hidden
   }, [])
 
-  // Re-evaluate on page change
+  // Poll for page changes and inspector activation
   const [tick, setTick] = useState(0)
+  const [inspSession, setInspSession] = useState(() => TooltipTour.getInspectorSession())
+  const prevPageRef = useRef<string | null>(null)
+
   useEffect(() => {
     const interval = setInterval(() => {
+      // Page change → re-evaluate launcher state
       const page = TooltipTour.currentPage
       if (page !== prevPageRef.current) {
         prevPageRef.current = page
         setTick(t => t + 1)
       }
+      // Inspector activation via deep link → show inspector overlay
+      const session = TooltipTour.getInspectorSession()
+      setInspSession(prev => {
+        if (prev === session) return prev
+        return session
+      })
     }, 300)
     return () => clearInterval(interval)
   }, [])
-
-  const prevPageRef = useRef<string | null>(null)
 
   useEffect(() => {
     if (TooltipTour.isInspectorActive) {
@@ -180,8 +188,6 @@ export function TTLauncherView() {
   const targetFrame   = currentStep?.targetId ? TTViewRegistry.frame(currentStep.targetId) : undefined
 
   // ── Inspector ──────────────────────────────────────────────────────────────
-  const inspSession = TooltipTour.getInspectorSession()
-
   if (inspSession) {
     return (
       <TTInspectorView
