@@ -3,8 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 export interface TTStep {
   id: string
   title?: string
-  body?: string
-  targetId?: string
+  content?: string  // body copy for the step card
+  selector?: string // registered useTTTarget() id to highlight
   position?: 'top' | 'bottom' | 'left' | 'right' | 'center'
   order: number
 }

@@ -35,8 +35,8 @@ export function TTStepCardView({ step, stepIndex, totalSteps, config, onNext, on
       </View>
 
       {/* Content */}
-      {!!step.title && <Text style={styles.title}>{step.title}</Text>}
-      {!!step.body  && <Text style={styles.body}>{step.body}</Text>}
+      {!!step.title   && <Text style={styles.title}>{step.title}</Text>}
+      {!!step.content && <Text style={styles.body}>{step.content}</Text>}
 
       {/* Navigation */}
       <View style={styles.navRow}>

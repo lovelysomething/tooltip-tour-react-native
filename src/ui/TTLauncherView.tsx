@@ -137,9 +137,9 @@ export function TTLauncherView() {
 
   function scrollToCurrentStep(cfg: TTConfig, idx: number) {
     const step = cfg.steps[idx]
-    if (!step?.targetId) return
+    if (!step?.selector) return
     const page = TooltipTour.currentPage
-    if (page) TTViewRegistry.scrollTo(page, step.targetId)
+    if (page) TTViewRegistry.scrollTo(page, step.selector)
   }
 
   function handleNext() {
@@ -183,9 +183,31 @@ export function TTLauncherView() {
   const fabOnLeft  = config?.styles?.fab?.position === 'left'
   const fabRadius  = fabSize / 2
 
-  // ── Current step frame ─────────────────────────────────────────────────────
-  const currentStep   = config?.steps[stepIndex]
-  const targetFrame   = currentStep?.targetId ? TTViewRegistry.frame(currentStep.targetId) : undefined
+  // ── Current step frame — poll while session is active so spotlight/beacon
+  //    update as soon as the element's measureInWindow resolves ────────────────
+  const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | undefined>(undefined)
+  const currentStep = config?.steps[stepIndex]
+
+  useEffect(() => {
+    if (launcherState !== 'session' || !currentStep?.selector) {
+      setTargetFrame(undefined)
+      return
+    }
+    const selector = currentStep.selector
+    // Immediately try to grab a cached frame, then keep polling until it lands
+    const poll = async () => {
+      const f = TTViewRegistry.frame(selector)
+      if (f) { setTargetFrame(f); return }
+      // Frame not yet measured — trigger a full refresh and retry shortly
+      await TTViewRegistry.refreshAll()
+      const f2 = TTViewRegistry.frame(selector)
+      if (f2) { setTargetFrame(f2); return }
+      retry = setTimeout(poll, 150)
+    }
+    let retry: ReturnType<typeof setTimeout>
+    void poll()
+    return () => clearTimeout(retry)
+  }, [launcherState, currentStep?.selector, stepIndex])
 
   // ── Inspector ──────────────────────────────────────────────────────────────
   if (inspSession) {
