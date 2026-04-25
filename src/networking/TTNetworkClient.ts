@@ -38,12 +38,16 @@ export interface TTStyles {
 
 export interface TTConfig {
   id: string
-  name: string
+  name?: string
   pagePattern: string
   steps: TTStep[]
   startMinimized?: boolean
   maxShows?: number
   fabLabel?: string
+  welcomeTitle?: string
+  welcomeMessage?: string
+  welcomeEmoji?: string
+  autoOpen?: boolean
   splashCarousel?: TTSplashCarousel
   styles?: TTStyles
 }
@@ -77,7 +81,7 @@ export class TTNetworkClient {
     } catch { /* cache miss */ }
 
     try {
-      const res = await fetch(`${this.baseURL}/api/configs?siteKey=${this.siteKey}`, {
+      const res = await fetch(`${this.baseURL}/api/walkthrough/${this.siteKey}?prefetch=true`, {
         headers: { 'Content-Type': 'application/json' },
       })
       if (!res.ok) return []

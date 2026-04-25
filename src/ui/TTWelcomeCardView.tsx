@@ -19,8 +19,8 @@ export function TTWelcomeCardView({ config, visible, onStart, onDismiss, onDontS
 
   const fabBg       = parseColor(config.styles?.fabBgColor) ?? '#3730A3'
   const btnRadius   = config.styles?.btnBorderRadius ?? 8
-  const title       = (config as any).welcomeTitle  ?? config.name
-  const subtitle    = (config as any).welcomeBody   ?? 'Learn how to get the most out of this screen.'
+  const title       = config.welcomeTitle   ?? config.name ?? 'Welcome'
+  const subtitle    = config.welcomeMessage ?? 'Learn how to get the most out of this screen.'
   const startLabel  = (config as any).startLabel    ?? 'Start tour'
   const dismissLabel = (config as any).dismissLabel ?? 'Maybe later'
 
