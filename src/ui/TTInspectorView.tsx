@@ -198,7 +198,6 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
                   placeholderTextColor={`${BRAND}59`}
                   autoCapitalize="none"
                   autoCorrect={false}
-                  autoFocus
                   returnKeyType="done"
                   onSubmitEditing={submit}
                 />
