@@ -72,9 +72,22 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
 
   const client = useRef(new TTNetworkClient(baseURL, '')).current
 
+  // Measure where the overlay root sits in window coords so we can offset chips correctly.
+  // measureInWindow returns absolute window coords, but position:absolute children are
+  // relative to this view — so we subtract the overlay's own window offset.
+  const overlayRef = useRef<any>(null)
+  const overlayOffset = useRef({ x: 0, y: 0 })
+
+  const measureOverlay = () => {
+    overlayRef.current?.measureInWindow((x: number, y: number) => {
+      overlayOffset.current = { x, y }
+    })
+  }
+
   // Refresh frames whenever we enter Highlight mode
   useEffect(() => {
     if (inspMode === 'highlight') {
+      measureOverlay()
       void TTViewRegistry.refreshAll().then(() => {
         setFrames(new Map(TTViewRegistry.allFrames()))
       })
@@ -125,7 +138,7 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
   }
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <View ref={overlayRef} style={StyleSheet.absoluteFill} pointerEvents="box-none" onLayout={measureOverlay}>
 
       {/* ── Highlight chips — passthrough except chip touch targets ── */}
       {inspMode === 'highlight' && phase === 'tapping' && (
@@ -135,8 +148,10 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
               key={id}
               onPress={() => tapChip(id)}
               style={[styles.chip, {
-                left: rect.x, top: rect.y,
-                width: rect.width, height: rect.height,
+                left:   rect.x - overlayOffset.current.x,
+                top:    rect.y - overlayOffset.current.y,
+                width:  rect.width,
+                height: rect.height,
               }]}
               activeOpacity={0.7}
             >
