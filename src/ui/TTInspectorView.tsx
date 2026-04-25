@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, Text, TouchableOpacity, TextInput, StyleSheet,
-  Modal, Animated, KeyboardAvoidingView, Platform, ScrollView,
+  Modal, KeyboardAvoidingView, Platform,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { TTViewRegistry } from '../TTViewRegistry'
 import { TTNetworkClient } from '../networking/TTNetworkClient'
 import { TooltipTour } from '../TooltipTour'
@@ -26,6 +27,7 @@ const BRAND = '#1925AA'
  * Activated via deep link: tooltiptour://inspect?session=xxx&base=...&mode=element
  */
 export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
+  const insets = useSafeAreaInsets()
   const [inspMode, setInspMode]   = useState<InspectorMode>('navigate')
   const [phase, setPhase]         = useState<InspectorPhase>('tapping')
   const [capturedId, setCapturedId] = useState('')
@@ -87,124 +89,125 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
   }
 
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+    <Modal transparent visible animationType="none" statusBarTranslucent>
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
 
-      {/* ── Highlight chips ── */}
-      {inspMode === 'highlight' && phase === 'tapping' && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          {Array.from(frames.entries()).map(([id, rect]) => (
-            <TouchableOpacity
-              key={id}
-              onPress={() => tapChip(id)}
-              style={[styles.chip, {
-                left: rect.x, top: rect.y,
-                width: rect.width, height: rect.height,
-              }]}
-              activeOpacity={0.7}
-            >
-              <View style={styles.chipBorder} />
-              <View style={styles.chipLabel}>
-                <Text style={styles.chipLabelText} numberOfLines={1}>{id}</Text>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* ── Dim + confirm card ── */}
-      {(phase === 'confirming' || phase === 'done') && (
-        <TouchableOpacity
-          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
-          onPress={retry}
-          activeOpacity={1}
-        />
-      )}
-
-      {/* ── Bottom sheet confirm card ── */}
-      {(phase === 'confirming' || phase === 'done') && (
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.cardWrap}
-        >
-          <View style={styles.card}>
-            <Text style={[styles.cardSuper, { color: BRAND }]}>
-              {phase === 'done' ? 'SENT TO DASHBOARD ✓' : 'SET IDENTIFIER'}
-            </Text>
-            <Text style={styles.cardTitle}>
-              {phase === 'done'
-                ? identifier
-                : mode === 'page' ? 'Page identified as' : 'Name this element'}
-            </Text>
-            {phase === 'confirming' && (
-              <>
-                <TextInput
-                  style={[styles.identifierInput, { color: BRAND, borderColor: `${BRAND}22` }]}
-                  value={identifier}
-                  onChangeText={setIdentifier}
-                  placeholder="e.g. loginButton or welcomeTitle"
-                  placeholderTextColor={`${BRAND}59`}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={submit}
-                />
-                <View style={styles.cardButtons}>
-                  <TouchableOpacity style={styles.retryBtn} onPress={retry}>
-                    <Text style={styles.retryBtnText}>RETRY</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.sendBtn, { backgroundColor: BRAND, opacity: identifier.trim() ? 1 : 0.4 }]}
-                    onPress={submit}
-                    disabled={!identifier.trim()}
-                  >
-                    <Text style={styles.sendBtnText}>SEND TO SITE →</Text>
-                  </TouchableOpacity>
+        {/* ── Highlight chips ── */}
+        {inspMode === 'highlight' && phase === 'tapping' && (
+          <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+            {Array.from(frames.entries()).map(([id, rect]) => (
+              <TouchableOpacity
+                key={id}
+                onPress={() => tapChip(id)}
+                style={[styles.chip, {
+                  left: rect.x, top: rect.y,
+                  width: rect.width, height: rect.height,
+                }]}
+                activeOpacity={0.7}
+              >
+                <View style={styles.chipBorder} />
+                <View style={styles.chipLabel}>
+                  <Text style={styles.chipLabelText} numberOfLines={1}>{id}</Text>
                 </View>
-              </>
-            )}
-          </View>
-        </KeyboardAvoidingView>
-      )}
-
-      {/* ── Top banner ── */}
-      <View style={styles.banner} pointerEvents="box-none">
-        <View style={[styles.bannerInner, { backgroundColor: BRAND }]}>
-          {mode === 'page' ? (
-            <>
-              <Text style={styles.bannerPageText}>Navigate to your screen</Text>
-              <TouchableOpacity onPress={capturePage}>
-                <Text style={styles.bannerTabActive}>SET PAGE</Text>
               </TouchableOpacity>
-            </>
-          ) : (
-            <View style={styles.tabRow} pointerEvents="box-none">
-              {(['navigate', 'highlight'] as const).map(m => (
-                <TouchableOpacity
-                  key={m}
-                  onPress={() => setInspMode(m)}
-                  style={[styles.tab, inspMode === m && styles.tabActive]}
-                >
-                  <Text style={[styles.tabText, inspMode === m && styles.tabTextActive]}>
-                    {m === 'navigate' ? 'Navigate' : 'Highlight'}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            ))}
+          </View>
+        )}
+
+        {/* ── Dim + confirm card ── */}
+        {(phase === 'confirming' || phase === 'done') && (
+          <TouchableOpacity
+            style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.45)' }]}
+            onPress={retry}
+            activeOpacity={1}
+          />
+        )}
+
+        {/* ── Bottom sheet confirm card ── */}
+        {(phase === 'confirming' || phase === 'done') && (
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.cardWrap}
+          >
+            <View style={styles.card}>
+              <Text style={[styles.cardSuper, { color: BRAND }]}>
+                {phase === 'done' ? 'SENT TO DASHBOARD ✓' : 'SET IDENTIFIER'}
+              </Text>
+              <Text style={styles.cardTitle}>
+                {phase === 'done'
+                  ? identifier
+                  : mode === 'page' ? 'Page identified as' : 'Name this element'}
+              </Text>
+              {phase === 'confirming' && (
+                <>
+                  <TextInput
+                    style={[styles.identifierInput, { color: BRAND, borderColor: `${BRAND}22` }]}
+                    value={identifier}
+                    onChangeText={setIdentifier}
+                    placeholder="e.g. loginButton or welcomeTitle"
+                    placeholderTextColor={`${BRAND}59`}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    autoFocus
+                    returnKeyType="done"
+                    onSubmitEditing={submit}
+                  />
+                  <View style={styles.cardButtons}>
+                    <TouchableOpacity style={styles.retryBtn} onPress={retry}>
+                      <Text style={styles.retryBtnText}>RETRY</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.sendBtn, { backgroundColor: BRAND, opacity: identifier.trim() ? 1 : 0.4 }]}
+                      onPress={submit}
+                      disabled={!identifier.trim()}
+                    >
+                      <Text style={styles.sendBtnText}>SEND TO SITE →</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
             </View>
-          )}
-          <TouchableOpacity onPress={onEnd} style={styles.closeBtn}>
-            <Text style={styles.closeBtnText}>✕</Text>
-          </TouchableOpacity>
+          </KeyboardAvoidingView>
+        )}
+
+        {/* ── Top banner — sits below status bar using safe area inset ── */}
+        <View style={[styles.banner, { paddingTop: insets.top }]}>
+          <View style={[styles.bannerInner, { backgroundColor: BRAND }]}>
+            {mode === 'page' ? (
+              <>
+                <Text style={styles.bannerPageText}>Navigate to your screen</Text>
+                <TouchableOpacity onPress={capturePage}>
+                  <Text style={styles.bannerTabActive}>SET PAGE</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <View style={styles.tabRow}>
+                {(['navigate', 'highlight'] as const).map(m => (
+                  <TouchableOpacity
+                    key={m}
+                    onPress={() => setInspMode(m)}
+                    style={[styles.tab, inspMode === m && styles.tabActive]}
+                  >
+                    <Text style={[styles.tabText, inspMode === m && styles.tabTextActive]}>
+                      {m === 'navigate' ? 'Navigate' : 'Highlight'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <TouchableOpacity onPress={onEnd} style={styles.closeBtn}>
+              <Text style={styles.closeBtnText}>✕</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+    </Modal>
   )
 }
 
 const styles = StyleSheet.create({
   banner: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    paddingTop: Platform.OS === 'ios' ? 52 : 28,
     paddingHorizontal: 16,
   },
   bannerInner: {
