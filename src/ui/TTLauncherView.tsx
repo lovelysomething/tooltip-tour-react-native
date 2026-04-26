@@ -194,14 +194,13 @@ export function TTLauncherView() {
       return
     }
     const selector = currentStep.selector
-    // Immediately try to grab a cached frame, then keep polling until it lands
+    // Always do a fresh measureInWindow pass so we get the current window
+    // coordinates (cached frames can be stale if layout shifted)
     const poll = async () => {
+      await TTViewRegistry.refreshAll()
       const f = TTViewRegistry.frame(selector)
       if (f) { setTargetFrame(f); return }
-      // Frame not yet measured — trigger a full refresh and retry shortly
-      await TTViewRegistry.refreshAll()
-      const f2 = TTViewRegistry.frame(selector)
-      if (f2) { setTargetFrame(f2); return }
+      // Ref not yet mounted — retry shortly
       retry = setTimeout(poll, 150)
     }
     let retry: ReturnType<typeof setTimeout>
