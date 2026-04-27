@@ -31,9 +31,9 @@ export function TTBeaconView({ x, y, width, height, stepNumber, color = '#1925AA
   const pulseScale  = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 2.2] })
   const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.6, 0] })
 
-  // Anchor the badge at the top-centre edge of the element (slightly overlapping)
+  // Anchor the badge at the bottom-centre edge so it points toward the step card
   const cx = x + width / 2
-  const cy = y
+  const cy = y + height
   const BEACON = 28
 
   return (

@@ -35,6 +35,10 @@ class TTViewRegistryClass {
     return this.frames.get(id)
   }
 
+  getRef(id: string): RefObject<any> | undefined {
+    return this.refs.get(id)
+  }
+
   /** All currently-measured frames — used by the inspector overlay. */
   allFrames(): Map<string, Frame> {
     return this.frames

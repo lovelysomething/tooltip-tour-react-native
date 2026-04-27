@@ -177,14 +177,24 @@ export function TTLauncherView() {
   }
 
   // ── FAB styling ────────────────────────────────────────────────────────────
+  const { height: screenHeight } = useWindowDimensions()
+
   const fabBg      = parseColor(config?.styles?.fabBgColor) ?? '#3730A3'
   const fabSize    = config?.styles?.fab?.size    ?? 44
   const fabBottom  = config?.styles?.fab?.bottomOffset ?? 40
   const fabOnLeft  = config?.styles?.fab?.position === 'left'
   const fabRadius  = fabSize / 2
 
-  // ── Current step frame — poll while session is active so spotlight/beacon
-  //    update as soon as the element's measureInWindow resolves ────────────────
+  // ── Session overlay origin — corrects measureInWindow ↔ SVG coordinate space
+  const sessionOverlayRef = useRef<any>(null)
+  const [overlayOrigin, setOverlayOrigin] = useState({ x: 0, y: 0 })
+  const measureSessionOverlay = () => {
+    sessionOverlayRef.current?.measureInWindow((x: number, y: number) => {
+      setOverlayOrigin({ x, y })
+    })
+  }
+
+  // ── Current step frame — poll while session is active ────────────────────────
   const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | undefined>(undefined)
   const currentStep = config?.steps[stepIndex]
 
@@ -194,19 +204,35 @@ export function TTLauncherView() {
       return
     }
     const selector = currentStep.selector
-    // Always do a fresh measureInWindow pass so we get the current window
-    // coordinates (cached frames can be stale if layout shifted)
     const poll = async () => {
       await TTViewRegistry.refreshAll()
       const f = TTViewRegistry.frame(selector)
       if (f) { setTargetFrame(f); return }
-      // Ref not yet mounted — retry shortly
       retry = setTimeout(poll, 150)
     }
     let retry: ReturnType<typeof setTimeout>
     void poll()
     return () => clearTimeout(retry)
   }, [launcherState, currentStep?.selector, stepIndex])
+
+  // ── Adjusted frame: element coords relative to the overlay's own origin ──────
+  //    Fixes any coordinate-space mismatch between measureInWindow and the SVG
+  const adjustedFrame = targetFrame ? {
+    x:      targetFrame.x - overlayOrigin.x,
+    y:      targetFrame.y - overlayOrigin.y,
+    width:  targetFrame.width,
+    height: targetFrame.height,
+  } : undefined
+
+  // ── Step card position: below element in top half, above in bottom half ──────
+  const cardPositionStyle: object = (() => {
+    if (!adjustedFrame) return { position: 'absolute', bottom: 40, left: 0, right: 0 }
+    const elementBottom = adjustedFrame.y + adjustedFrame.height
+    if (elementBottom < screenHeight * 0.55) {
+      return { position: 'absolute', top: elementBottom + 20, left: 0, right: 0 }
+    }
+    return { position: 'absolute', bottom: screenHeight - adjustedFrame.y + 20, left: 0, right: 0 }
+  })()
 
   // ── Inspector ──────────────────────────────────────────────────────────────
   if (inspSession) {
@@ -224,18 +250,23 @@ export function TTLauncherView() {
     <>
       {/* ── Tour session overlay ── */}
       {launcherState === 'session' && config && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          <TTSpotlightView frame={targetFrame ?? null} />
-          {targetFrame && (
+        <View
+          ref={sessionOverlayRef}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="box-none"
+          onLayout={measureSessionOverlay}
+        >
+          <TTSpotlightView frame={adjustedFrame ?? null} />
+          {adjustedFrame && (
             <TTBeaconView
-              x={targetFrame.x} y={targetFrame.y}
-              width={targetFrame.width} height={targetFrame.height}
+              x={adjustedFrame.x} y={adjustedFrame.y}
+              width={adjustedFrame.width} height={adjustedFrame.height}
               stepNumber={stepIndex + 1}
               color={fabBg}
             />
           )}
-          {/* Step card — bottom of screen */}
-          <View style={styles.stepCardWrap} pointerEvents="box-none">
+          {/* Step card — positioned near target element */}
+          <View style={cardPositionStyle} pointerEvents="box-none">
             <TTStepCardView
               step={config.steps[stepIndex]}
               stepIndex={stepIndex}

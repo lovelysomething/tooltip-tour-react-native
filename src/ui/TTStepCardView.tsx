@@ -49,13 +49,30 @@ export function TTStepCardView({ step, stepIndex, totalSteps, config, onNext, on
         ))}
       </View>
 
-      {/* Full-width Next / Done button */}
-      <TouchableOpacity
-        style={[styles.nextBtn, { backgroundColor: fabBg, borderRadius: btnRadius }]}
-        onPress={onNext}
-      >
-        <Text style={styles.nextBtnText}>{isLast ? 'Done ✓' : 'Next →'}</Text>
-      </TouchableOpacity>
+      {/* Navigation: full-width Next on step 1; Prev + Next side-by-side after */}
+      {stepIndex === 0 ? (
+        <TouchableOpacity
+          style={[styles.nextBtnFull, { backgroundColor: fabBg, borderRadius: btnRadius }]}
+          onPress={onNext}
+        >
+          <Text style={styles.nextBtnText}>{isLast ? 'Done ✓' : 'Next →'}</Text>
+        </TouchableOpacity>
+      ) : (
+        <View style={styles.navRow}>
+          <TouchableOpacity
+            style={[styles.prevBtn, { borderRadius: btnRadius }]}
+            onPress={onBack}
+          >
+            <Text style={[styles.prevBtnText, { color: fabBg }]}>← Prev</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.nextBtnHalf, { backgroundColor: fabBg, borderRadius: btnRadius }]}
+            onPress={onNext}
+          >
+            <Text style={styles.nextBtnText}>{isLast ? 'Done ✓' : 'Next →'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   )
 }
@@ -80,9 +97,14 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: '800', color: '#0D0A1C', marginBottom: 8, letterSpacing: -0.4 },
   body:  { fontSize: 14, color: 'rgba(13,10,28,0.6)', lineHeight: 20, marginBottom: 16 },
   dotRow: { flexDirection: 'row', gap: 6, marginBottom: 16 },
-  dot: {
-    width: 7, height: 7, borderRadius: 4,
+  dot: { width: 7, height: 7, borderRadius: 4 },
+  navRow: { flexDirection: 'row', gap: 8 },
+  prevBtn: {
+    flex: 1, paddingVertical: 14, alignItems: 'center',
+    backgroundColor: 'rgba(13,10,28,0.05)',
   },
-  nextBtn:  { paddingVertical: 14, alignItems: 'center' },
+  prevBtnText: { fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
+  nextBtnFull: { paddingVertical: 14, alignItems: 'center' },
+  nextBtnHalf: { flex: 1, paddingVertical: 14, alignItems: 'center' },
   nextBtnText: { color: '#fff', fontSize: 14, fontWeight: '700', letterSpacing: 0.3 },
 })
