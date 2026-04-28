@@ -194,7 +194,7 @@ export function TTLauncherView() {
     })
   }
 
-  // ── Current step frame — poll while session is active ────────────────────────
+  // ── Current step frame — poll continuously so scroll animation can complete ──
   const [targetFrame, setTargetFrame] = useState<{ x: number; y: number; width: number; height: number } | undefined>(undefined)
   const currentStep = config?.steps[stepIndex]
 
@@ -204,15 +204,21 @@ export function TTLauncherView() {
       return
     }
     const selector = currentStep.selector
-    const poll = async () => {
+    let stopped = false
+    let retry: ReturnType<typeof setTimeout>
+
+    const refresh = async () => {
+      if (stopped) return
       await TTViewRegistry.refreshAll()
       const f = TTViewRegistry.frame(selector)
-      if (f) { setTargetFrame(f); return }
-      retry = setTimeout(poll, 150)
+      if (f) setTargetFrame(f)
+      // Keep refreshing every 300 ms — handles scroll animation completing
+      // after the step advances, so the frame is always current
+      if (!stopped) retry = setTimeout(refresh, 300)
     }
-    let retry: ReturnType<typeof setTimeout>
-    void poll()
-    return () => clearTimeout(retry)
+
+    void refresh()
+    return () => { stopped = true; clearTimeout(retry) }
   }, [launcherState, currentStep?.selector, stepIndex])
 
   // ── Adjusted frame: element coords relative to the overlay's own origin ──────
@@ -225,13 +231,19 @@ export function TTLauncherView() {
   } : undefined
 
   // ── Step card position: below element in top half, above in bottom half ──────
+  //    Falls back to bottom: 40 if element is off-screen (scroll in progress)
   const cardPositionStyle: object = (() => {
     if (!adjustedFrame) return { position: 'absolute', bottom: 40, left: 0, right: 0 }
-    const elementBottom = adjustedFrame.y + adjustedFrame.height
-    if (elementBottom < screenHeight * 0.55) {
-      return { position: 'absolute', top: elementBottom + 20, left: 0, right: 0 }
+    const { y, height } = adjustedFrame
+    const elementBottom = y + height
+    // Off-screen (scroll still animating) → park card at bottom until frame settles
+    if (y > screenHeight || elementBottom < 0) {
+      return { position: 'absolute', bottom: 40, left: 0, right: 0 }
     }
-    return { position: 'absolute', bottom: screenHeight - adjustedFrame.y + 20, left: 0, right: 0 }
+    if (elementBottom < screenHeight * 0.55) {
+      return { position: 'absolute', top: elementBottom + 16, left: 0, right: 0 }
+    }
+    return { position: 'absolute', bottom: Math.max(screenHeight - y + 16, 40), left: 0, right: 0 }
   })()
 
   // ── Inspector ──────────────────────────────────────────────────────────────
