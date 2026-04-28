@@ -209,11 +209,15 @@ export function TTLauncherView() {
 
     const refresh = async () => {
       if (stopped) return
-      await TTViewRegistry.refreshAll()
+      // Measure only the target element (not all refs) — avoids stale frame
+      // contamination from unrelated elements and prevents null-ref hangs
+      const ref = TTViewRegistry.getRef(selector)
+      if (ref) {
+        await TTViewRegistry.measureAndCache(selector, ref)
+      }
       const f = TTViewRegistry.frame(selector)
       if (f) setTargetFrame(f)
-      // Keep refreshing every 300 ms — handles scroll animation completing
-      // after the step advances, so the frame is always current
+      // Keep refreshing every 300 ms so the frame stays current as the page scrolls
       if (!stopped) retry = setTimeout(refresh, 300)
     }
 

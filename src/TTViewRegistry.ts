@@ -24,7 +24,9 @@ class TTViewRegistryClass {
   /** Called by useTTTarget after layout settles — measures and caches the frame. */
   measureAndCache(id: string, ref: RefObject<any>): Promise<void> {
     return new Promise(resolve => {
-      ref.current?.measureInWindow((x: number, y: number, width: number, height: number) => {
+      // Guard: if ref is not attached, resolve immediately so Promise.all doesn't hang
+      if (!ref.current) { resolve(); return }
+      ref.current.measureInWindow((x: number, y: number, width: number, height: number) => {
         if (width > 0) this.frames.set(id, { x, y, width, height })
         resolve()
       })
