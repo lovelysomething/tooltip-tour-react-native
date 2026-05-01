@@ -23,17 +23,50 @@ export interface TTSplashCarousel {
   maxShows?: number
 }
 
+// Matches the nested snake_case shape stored in the dashboard and returned by the API.
 export interface TTFabStyles {
+  bg_color?: string
+  border_radius?: number
   size?: number
-  bottomOffset?: number
-  position?: 'left' | 'right'
+  bottom_offset?: number
+  position?: string   // e.g. 'right', 'left', 'bottom-right', 'bottom-left'
   icon?: string
 }
 
+export interface TTCardStyles {
+  bg_color?: string
+  border_radius?: number
+}
+
+export interface TTTypeStyles {
+  title_color?: string
+  body_color?: string
+  dot_inactive_color?: string
+}
+
+export interface TTBtnStyles {
+  bg_color?: string
+  text_color?: string
+  border_radius?: number
+}
+
+export interface TTBeaconStyles {
+  style?: string
+  bg_color?: string
+  text_color?: string
+}
+
 export interface TTStyles {
-  fabBgColor?: string
   fab?: TTFabStyles
-  btnBorderRadius?: number
+  card?: TTCardStyles
+  type?: TTTypeStyles
+  btn?: TTBtnStyles
+  beacon?: TTBeaconStyles
+}
+
+export interface TTDisplayConditions {
+  elementCondition?:   { selector: string; rule: 'exists' | 'not_exists' }
+  priorTourCondition?: { tourId: string;   rule: 'seen'   | 'completed'  }
 }
 
 export interface TTConfig {
@@ -50,6 +83,7 @@ export interface TTConfig {
   autoOpen?: boolean
   splashCarousel?: TTSplashCarousel
   styles?: TTStyles
+  displayConditions?: TTDisplayConditions
 }
 
 interface TTKnownPage {

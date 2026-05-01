@@ -35,6 +35,11 @@ class TooltipTourClass {
     this._baseURL = options.baseURL.replace(/\/$/, '')
     this._client  = new TTNetworkClient(this._baseURL, this._siteKey)
     this._tracker = new TTEventTracker(this._baseURL, this._siteKey)
+    // Invalidate any cached config so each app start always fetches the latest
+    // from the server — prevents stale configs (e.g. newly-enabled carousels)
+    // from being served after a dashboard change.
+    AsyncStorage.removeItem(`tt-configs-${options.siteKey}`).catch(() => {})
+    AsyncStorage.removeItem(`tt-configs-ts-${options.siteKey}`).catch(() => {})
   }
 
   // ── Page registration ──────────────────────────────────────────────────────
@@ -126,6 +131,14 @@ class TooltipTourClass {
   async incrementCarouselShowCount(configId: string): Promise<void> {
     const count = await this.carouselShowCount(configId)
     await this.setInt(`tt-carousel-shows-${configId}`, count + 1)
+  }
+
+  isCompleted(configId: string): Promise<boolean> {
+    return this.getBool(`tt-completed-${configId}`)
+  }
+
+  markCompleted(configId: string): Promise<void> {
+    return this.setBool(`tt-completed-${configId}`, true)
   }
 
   // ── Scrollable registration ────────────────────────────────────────────────

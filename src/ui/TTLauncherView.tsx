@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   View, TouchableOpacity, StyleSheet, Animated, useWindowDimensions,
   ActivityIndicator, Text,
@@ -75,6 +75,16 @@ export function TTLauncherView() {
       if (cancelled) return
 
       if (!cfg) { setLauncherState('hidden'); setConfig(null); return }
+
+      // Prior-tour display condition (element condition N/A on mobile)
+      const dc = cfg.displayConditions?.priorTourCondition
+      if (dc) {
+        const seen = await TooltipTour.showCount(dc.tourId) > 0
+        const done = await TooltipTour.isCompleted(dc.tourId)
+        if (dc.rule === 'seen'      && !seen) { setLauncherState('hidden'); setConfig(null); return }
+        if (dc.rule === 'completed' && !done) { setLauncherState('hidden'); setConfig(null); return }
+      }
+
       setConfig(cfg)
 
       const id          = cfg.id
@@ -146,10 +156,12 @@ export function TTLauncherView() {
     if (!config) return
     const nextIdx = stepIndex + 1
     if (nextIdx >= config.steps.length) {
-      // Done
+      // Done — mark completed + minimised so the FAB shows on next evaluate, then show it now
       TooltipTour.tracker?.track(TTEventType.GUIDE_COMPLETED, config.id)
+      TooltipTour.markCompleted(config.id)
       TooltipTour.endSession()
-      setLauncherState('hidden')
+      TooltipTour.setSessionMinimised(config.id, true)
+      setLauncherState('fab')
     } else {
       const newIdx = nextIdx
       setStepIndex(newIdx)
@@ -179,11 +191,24 @@ export function TTLauncherView() {
   // ── FAB styling ────────────────────────────────────────────────────────────
   const { height: screenHeight } = useWindowDimensions()
 
-  const fabBg      = parseColor(config?.styles?.fabBgColor) ?? '#3730A3'
-  const fabSize    = config?.styles?.fab?.size    ?? 44
-  const fabBottom  = config?.styles?.fab?.bottomOffset ?? 40
-  const fabOnLeft  = config?.styles?.fab?.position === 'left'
-  const fabRadius  = fabSize / 2
+  const fabBg     = parseColor(config?.styles?.fab?.bg_color) ?? '#3730A3'
+  const fabSize   = config?.styles?.fab?.size          ?? 44
+  const fabBottom = config?.styles?.fab?.bottom_offset ?? 40
+  const fabOnLeft = config?.styles?.fab?.position?.includes('left') ?? false
+  const fabRadius = config?.styles?.fab?.border_radius ?? fabSize / 2
+
+  // ── FAB spring-in animation ────────────────────────────────────────────────
+  const fabScale = useRef(new Animated.Value(0)).current
+  useEffect(() => {
+    if (launcherState === 'fab') {
+      Animated.spring(fabScale, {
+        toValue: 1, useNativeDriver: true,
+        tension: 120, friction: 8,
+      }).start()
+    } else {
+      fabScale.setValue(0)
+    }
+  }, [launcherState])
 
   // ── Session overlay origin — corrects measureInWindow ↔ SVG coordinate space
   const sessionOverlayRef = useRef<any>(null)
@@ -299,10 +324,10 @@ export function TTLauncherView() {
       {/* ── Loading FAB ── */}
       {launcherState === 'loading' && (
         <View
-          style={[styles.fab, {
-            width: 44, height: 44, borderRadius: 22,
+          style={[styles.fab, styles.fabInner, {
+            width: fabSize, height: fabSize, borderRadius: fabRadius,
             backgroundColor: fabBg,
-            bottom: 40,
+            bottom: fabBottom,
             [fabOnLeft ? 'left' : 'right']: 20,
           }]}
           pointerEvents="none"
@@ -311,27 +336,35 @@ export function TTLauncherView() {
         </View>
       )}
 
-      {/* ── Minimised FAB ── */}
+      {/* ── Minimised FAB — springs in when it first appears ── */}
       {launcherState === 'fab' && config && (
-        <TouchableOpacity
+        <Animated.View
           style={[styles.fab, {
             width: fabSize, height: fabSize, borderRadius: fabRadius,
             backgroundColor: fabBg,
             bottom: fabBottom,
             [fabOnLeft ? 'left' : 'right']: 20,
+            transform: [{ scale: fabScale }],
           }]}
-          onPress={async () => {
-            const showCount  = await TooltipTour.showCount(config.id)
-            const maxReached = config.maxShows != null && showCount >= config.maxShows
-            if (!maxReached) {
-              await TooltipTour.incrementShowCount(config.id)
-              setLauncherState('welcome')
-            }
-          }}
-          activeOpacity={0.85}
         >
-          <Text style={{ color: '#fff', fontSize: 16 }}>?</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFill}
+            onPress={async () => {
+              const showCount  = await TooltipTour.showCount(config.id)
+              const maxReached = config.maxShows != null && showCount >= config.maxShows
+              if (!maxReached) {
+                await TooltipTour.incrementShowCount(config.id)
+                await TooltipTour.setSessionMinimised(config.id, false)
+                setLauncherState('welcome')
+              }
+            }}
+            activeOpacity={0.85}
+          >
+            <View style={styles.fabInner}>
+              <Text style={{ color: '#fff', fontSize: 16 }}>?</Text>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
       )}
 
       {/* ── Welcome card ── */}
@@ -355,7 +388,7 @@ export function TTLauncherView() {
       {config?.splashCarousel && (
         <TTSplashCarouselView
           carousel={config.splashCarousel}
-          btnBorderRadius={config.styles?.btnBorderRadius ?? 8}
+          btnBorderRadius={config.styles?.btn?.border_radius ?? 8}
           visible={launcherState === 'carousel'}
           onSlideViewed={index => {
             TooltipTour.tracker?.track(TTEventType.CAROUSEL_SLIDE_VIEWED, config.id, index)
@@ -379,9 +412,11 @@ export function TTLauncherView() {
 const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
-    alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
     elevation: 6,
+  },
+  fabInner: {
+    flex: 1, alignItems: 'center', justifyContent: 'center',
   },
   stepCardWrap: {
     position: 'absolute',
