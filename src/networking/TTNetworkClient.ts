@@ -75,6 +75,8 @@ export interface TTConfig {
   pagePattern: string
   steps: TTStep[]
   startMinimized?: boolean
+  /** "full" (default) shows the welcome card popup; "button" starts the tour directly when FAB is tapped. */
+  welcomeMode?: 'full' | 'button'
   maxShows?: number
   fabLabel?: string
   welcomeTitle?: string

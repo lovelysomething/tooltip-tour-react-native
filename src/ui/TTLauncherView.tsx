@@ -355,7 +355,13 @@ export function TTLauncherView() {
               if (!maxReached) {
                 await TooltipTour.incrementShowCount(config.id)
                 await TooltipTour.setSessionMinimised(config.id, false)
-                setLauncherState('welcome')
+                if (config.welcomeMode === 'button') {
+                  // Button-only mode: skip the welcome card and start the tour immediately
+                  setLauncherState('hidden')
+                  TooltipTour.startSession(config)
+                } else {
+                  setLauncherState('welcome')
+                }
               }
             }}
             activeOpacity={0.85}
