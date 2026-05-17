@@ -85,6 +85,20 @@ export function TTLauncherView() {
         if (dc.rule === 'completed' && !done) { setLauncherState('hidden'); setConfig(null); return }
       }
 
+      // Date-range display condition
+      const dr = cfg.displayConditions?.dateRange
+      if (dr) {
+        const now = new Date()
+        if (dr.from) {
+          const fromDate = new Date(dr.from + 'T00:00:00')
+          if (now < fromDate) { setLauncherState('hidden'); setConfig(null); return }
+        }
+        if (dr.to) {
+          const toDate = new Date(dr.to + 'T23:59:59')
+          if (now > toDate) { setLauncherState('hidden'); setConfig(null); return }
+        }
+      }
+
       setConfig(cfg)
 
       const id          = cfg.id

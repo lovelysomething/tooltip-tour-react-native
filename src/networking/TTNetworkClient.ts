@@ -67,6 +67,7 @@ export interface TTStyles {
 export interface TTDisplayConditions {
   elementCondition?:   { selector: string; rule: 'exists' | 'not_exists' }
   priorTourCondition?: { tourId: string;   rule: 'seen'   | 'completed'  }
+  dateRange?:          { from?: string;    to?: string }
 }
 
 export interface TTConfig {
