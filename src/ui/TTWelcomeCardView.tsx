@@ -88,11 +88,11 @@ export function TTWelcomeCardView({ config, visible, onStart, onDismiss, onDontS
             onPress={onStart}
             activeOpacity={0.85}
           >
-            <Text style={[styles.startBtnText, { color: btnText }]}>Yes, show me around!</Text>
+            <Text style={[styles.startBtnText, { color: btnText }]}>{config.welcomeCtaLabel ?? 'Yes, show me around!'}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity onPress={onDontShowAgain} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
-            <Text style={styles.dontShowText}>Don't show again</Text>
+            <Text style={styles.dontShowText}>{config.welcomeDismissLabel ?? "Don't show again"}</Text>
           </TouchableOpacity>
         </View>
 

@@ -82,6 +82,8 @@ export interface TTConfig {
   fabLabel?: string
   welcomeTitle?: string
   welcomeMessage?: string
+  welcomeCtaLabel?: string
+  welcomeDismissLabel?: string
   welcomeEmoji?: string
   autoOpen?: boolean
   splashCarousel?: TTSplashCarousel
