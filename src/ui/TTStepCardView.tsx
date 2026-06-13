@@ -14,8 +14,8 @@ interface Props {
 }
 
 export function TTStepCardView({ step, stepIndex, totalSteps, config, onNext, onBack, onDismiss }: Props) {
-  const fabBg     = parseColor(config.styles?.fabBgColor) ?? '#1925AA'
-  const btnRadius = config.styles?.btnBorderRadius ?? 8
+  const fabBg     = parseColor(config.styles?.fab?.bg_color) ?? '#1925AA'
+  const btnRadius = config.styles?.btn?.border_radius ?? 8
   const isLast    = stepIndex === totalSteps - 1
 
   return (

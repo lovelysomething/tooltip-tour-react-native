@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useRef, useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
   Animated, Easing, useWindowDimensions,
@@ -17,17 +17,49 @@ interface Props {
 export function TTWelcomeCardView({ config, visible, onStart, onDismiss, onDontShowAgain }: Props) {
   const { width } = useWindowDimensions()
 
-  const fabBg       = parseColor(config.styles?.fabBgColor) ?? '#3730A3'
-  const btnRadius   = config.styles?.btnBorderRadius ?? 8
-  const title       = config.welcomeTitle   ?? config.name ?? 'Welcome'
-  const subtitle    = config.welcomeMessage ?? 'Learn how to get the most out of this screen.'
-  const startLabel  = (config as any).startLabel    ?? 'Start tour'
-  const dismissLabel = (config as any).dismissLabel ?? 'Maybe later'
+  const fabBg        = parseColor(config.styles?.fab?.bg_color) ?? '#3730A3'
+  const btnRadius    = config.styles?.btn?.border_radius ?? 8
+  const title        = config.welcomeTitle   ?? config.name ?? 'Welcome'
+  const subtitle     = config.welcomeMessage ?? 'Learn how to get the most out of this screen.'
+  const startLabel   = (config as any).startLabel    ?? 'Start tour'
+  const dismissLabel = (config as any).dismissLabel  ?? 'Maybe later'
+
+  // ── Separate animations: backdrop fades, card slides ─────────────────────
+  const backdropOpacity = useRef(new Animated.Value(0)).current
+  const cardTranslateY  = useRef(new Animated.Value(400)).current
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(backdropOpacity, {
+          toValue: 1, duration: 220, useNativeDriver: true,
+        }),
+        Animated.timing(cardTranslateY, {
+          toValue: 0, duration: 360,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+      ]).start()
+    } else {
+      backdropOpacity.setValue(0)
+      cardTranslateY.setValue(400)
+    }
+  }, [visible])
 
   return (
-    <Modal transparent animationType="slide" visible={visible} onRequestClose={onDismiss}>
-      <TouchableOpacity style={styles.backdrop} activeOpacity={1} onPress={onDismiss} />
-      <View style={[styles.card, { maxWidth: Math.min(width, 480) }]}>
+    <Modal transparent animationType="none" visible={visible} onRequestClose={onDismiss}>
+      {/* Backdrop fades in separately */}
+      <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]}>
+        <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onDismiss} />
+      </Animated.View>
+
+      {/* Card slides up independently */}
+      <Animated.View
+        style={[
+          styles.card,
+          { maxWidth: Math.min(width, 480), transform: [{ translateY: cardTranslateY }] },
+        ]}
+      >
         <View style={styles.handle} />
 
         <Text style={styles.title}>{title}</Text>
@@ -49,17 +81,19 @@ export function TTWelcomeCardView({ config, visible, onStart, onDismiss, onDontS
             <Text style={styles.secondaryBtn}>Don't show again</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </Animated.View>
     </Modal>
   )
 }
 
 const styles = StyleSheet.create({
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
   card: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
