@@ -28,7 +28,9 @@ export function TTLauncherView() {
   const [launcherState, setLauncherState] = useState<LauncherState>('hidden')
   const [config, setConfig]               = useState<TTConfig | null>(null)
   const [stepIndex, setStepIndex]         = useState(0)
-  const [carouselShownThisSession, setCarouselShownThisSession] = useState(false)
+  // Tour ids whose carousel has shown this session — per tour, so a second
+  // tour's carousel still fires (a single flag blocked all but the first).
+  const carouselsShownRef = useRef<Set<string>>(new Set())
 
   // Session-end observer
   useEffect(() => {
@@ -110,12 +112,12 @@ export function TTLauncherView() {
 
       // Carousel check
       const carousel = cfg.splashCarousel
-      if (carousel && carousel.slides.length > 0 && !carouselShownThisSession && !isDismissed) {
+      if (carousel && carousel.slides.length > 0 && !carouselsShownRef.current.has(id) && !isDismissed) {
         const carouselShows    = await TooltipTour.carouselShowCount(id)
         const carouselMaxReach = carousel.maxShows != null && carouselShows >= carousel.maxShows
         if (!carouselMaxReach) {
           await TooltipTour.incrementCarouselShowCount(id)
-          setCarouselShownThisSession(true)
+          carouselsShownRef.current.add(id)
           setLauncherState('carousel')
           TooltipTour.tracker?.track(TTEventType.CAROUSEL_SHOWN, id)
           return
@@ -126,6 +128,14 @@ export function TTLauncherView() {
         setLauncherState('hidden')
       } else if (cfg.startMinimized || isMinimised) {
         setLauncherState('fab')
+      } else if (!cfg.autoOpen) {
+        // Auto-open disabled — show the FAB; user taps to begin.
+        setLauncherState('fab')
+      } else if (cfg.welcomeMode === 'button') {
+        // Button-only mode: skip the welcome card, start the tour directly.
+        await TooltipTour.incrementShowCount(id)
+        TooltipTour.tracker?.track(TTEventType.GUIDE_SHOWN, id)
+        beginTour(cfg)
       } else {
         setLauncherState('welcome')
         await TooltipTour.incrementShowCount(id)
@@ -148,16 +158,25 @@ export function TTLauncherView() {
     if (cfg.steps.length === 0) { setLauncherState('fab'); return }
     if (isDismissed || maxReached) { setLauncherState('hidden'); return }
     if (cfg.startMinimized || isMinimised) { setLauncherState('fab'); return }
+    // Respect autoOpen / welcomeMode (mirrors web + iOS)
+    if (!cfg.autoOpen) { setLauncherState('fab'); return }
     await TooltipTour.incrementShowCount(id)
+    if (cfg.welcomeMode === 'button') { beginTour(cfg); return }
     setLauncherState('welcome')
+  }
+
+  // Start the tour session directly with an explicit config (avoids relying on
+  // the async `config` state being committed yet — needed from evaluate()).
+  function beginTour(cfg: TTConfig) {
+    setStepIndex(0)
+    TooltipTour.startSession(cfg)
+    setLauncherState('session')
+    scrollToCurrentStep(cfg, 0)
   }
 
   function handleStart() {
     if (!config) return
-    setLauncherState('session')
-    setStepIndex(0)
-    TooltipTour.startSession(config)
-    scrollToCurrentStep(config, 0)
+    beginTour(config)
   }
 
   function scrollToCurrentStep(cfg: TTConfig, idx: number) {
