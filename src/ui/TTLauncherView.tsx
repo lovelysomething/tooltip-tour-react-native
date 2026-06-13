@@ -247,7 +247,21 @@ export function TTLauncherView() {
     let stopped = false
     let retry: ReturnType<typeof setTimeout>
 
-    const refresh = async () => {
+    // Settle-detection. The host page scrolls the target into view (animated),
+    // so an early measurement is mid-scroll. We poll fast and only COMMIT the
+    // frame once it stops moving — committing intermediate frames would restart
+    // the spotlight's 300ms glide every tick, which is what made it stutter.
+    // After it settles we keep a slow heartbeat so page scrolls are still tracked.
+    type F = { x: number; y: number; width: number; height: number }
+    let lastSeen:  F | null = null
+    let committed: F | null = null
+    let stableCount = 0
+    const near = (a: F | null, b: F | null) =>
+      !!a && !!b &&
+      Math.abs(a.x - b.x) < 1 && Math.abs(a.y - b.y) < 1 &&
+      Math.abs(a.width - b.width) < 1 && Math.abs(a.height - b.height) < 1
+
+    const tick = async () => {
       if (stopped) return
       // Measure only the target element (not all refs) — avoids stale frame
       // contamination from unrelated elements and prevents null-ref hangs
@@ -255,13 +269,22 @@ export function TTLauncherView() {
       if (ref) {
         await TTViewRegistry.measureAndCache(selector, ref)
       }
+      if (stopped) return
       const f = TTViewRegistry.frame(selector)
-      if (f) setTargetFrame(f)
-      // Keep refreshing every 300 ms so the frame stays current as the page scrolls
-      if (!stopped) retry = setTimeout(refresh, 300)
+      if (f) {
+        stableCount = near(f, lastSeen) ? stableCount + 1 : 0
+        lastSeen = f
+        // Two consecutive equal reads = scroll has settled; commit once.
+        if (stableCount >= 1 && !near(f, committed)) {
+          committed = f
+          setTargetFrame(f)
+        }
+      }
+      // Poll fast while chasing a moving target, ease to a heartbeat once settled
+      if (!stopped) retry = setTimeout(tick, stableCount >= 1 ? 400 : 60)
     }
 
-    void refresh()
+    void tick()
     return () => { stopped = true; clearTimeout(retry) }
   }, [launcherState, currentStep?.selector, stepIndex])
 
