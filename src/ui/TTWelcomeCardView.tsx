@@ -14,15 +14,25 @@ interface Props {
   onDontShowAgain: () => void    // permanent dismiss
 }
 
+/**
+ * Initial launch card — layout mirrors iOS/Android TTWelcomeCardView exactly:
+ * floating white card near the bottom (centered text, CTA, "Don't show again"),
+ * then a gap and an X dismiss circle below the card.
+ */
 export function TTWelcomeCardView({ config, visible, onStart, onDismiss, onDontShowAgain }: Props) {
   const { width } = useWindowDimensions()
 
-  const fabBg        = parseColor(config.styles?.fab?.bg_color) ?? '#3730A3'
-  const btnRadius    = config.styles?.btn?.border_radius ?? 8
-  const title        = config.welcomeTitle   ?? config.name ?? 'Welcome'
-  const subtitle     = config.welcomeMessage ?? 'Learn how to get the most out of this screen.'
-  const startLabel   = (config as any).startLabel    ?? 'Start tour'
-  const dismissLabel = (config as any).dismissLabel  ?? 'Maybe later'
+  const st          = config.styles
+  const cardBg      = parseColor(st?.card?.bg_color)    ?? '#ffffff'
+  const cardRadius  = st?.card?.border_radius           ?? 16
+  const titleColor  = parseColor(st?.type?.title_color) ?? '#0D0A1C'
+  const bodyColor   = parseColor(st?.type?.body_color)  ?? '#6B7280'
+  const btnBg       = parseColor(st?.btn?.bg_color)     ?? '#3730A3'
+  const btnText     = parseColor(st?.btn?.text_color)   ?? '#ffffff'
+  const btnRadius   = st?.btn?.border_radius            ?? 8
+
+  const title    = config.welcomeTitle   ?? config.name ?? 'Welcome'
+  const subtitle = config.welcomeMessage ?? 'Learn how to get the most out of this screen.'
 
   // ── Separate animations: backdrop fades, card slides ─────────────────────
   const backdropOpacity = useRef(new Animated.Value(0)).current
@@ -53,34 +63,43 @@ export function TTWelcomeCardView({ config, visible, onStart, onDismiss, onDontS
         <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={onDismiss} />
       </Animated.View>
 
-      {/* Card slides up independently */}
+      {/* Card + X circle slide up together */}
       <Animated.View
-        style={[
-          styles.card,
-          { maxWidth: Math.min(width, 480), transform: [{ translateY: cardTranslateY }] },
-        ]}
+        style={[styles.wrap, { transform: [{ translateY: cardTranslateY }] }]}
+        pointerEvents="box-none"
       >
-        <View style={styles.handle} />
+        <View style={[
+          styles.card,
+          {
+            backgroundColor: cardBg,
+            borderRadius: cardRadius,
+            maxWidth: Math.min(width - 40, 480),
+          },
+        ]}>
+          {!!title && (
+            <Text style={[styles.title, { color: titleColor }]}>{title}</Text>
+          )}
+          {!!subtitle && (
+            <Text style={[styles.body, { color: bodyColor }]}>{subtitle}</Text>
+          )}
 
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.body}>{subtitle}</Text>
-
-        <TouchableOpacity
-          style={[styles.startBtn, { backgroundColor: fabBg, borderRadius: btnRadius }]}
-          onPress={onStart}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.startBtnText}>{startLabel}</Text>
-        </TouchableOpacity>
-
-        <View style={styles.secondaryRow}>
-          <TouchableOpacity onPress={onDismiss}>
-            <Text style={styles.secondaryBtn}>{dismissLabel}</Text>
+          <TouchableOpacity
+            style={[styles.startBtn, { backgroundColor: btnBg, borderRadius: btnRadius }]}
+            onPress={onStart}
+            activeOpacity={0.85}
+          >
+            <Text style={[styles.startBtnText, { color: btnText }]}>Yes, show me around!</Text>
           </TouchableOpacity>
-          <TouchableOpacity onPress={onDontShowAgain}>
-            <Text style={styles.secondaryBtn}>Don't show again</Text>
+
+          <TouchableOpacity onPress={onDontShowAgain} hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}>
+            <Text style={styles.dontShowText}>Don't show again</Text>
           </TouchableOpacity>
         </View>
+
+        {/* X dismiss circle below the card, centred — matches iOS/Android */}
+        <TouchableOpacity style={styles.dismissCircle} onPress={onDismiss} activeOpacity={0.8}>
+          <Text style={styles.dismissX}>✕</Text>
+        </TouchableOpacity>
       </Animated.View>
     </Modal>
   )
@@ -91,44 +110,49 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.45)',
   },
-  card: {
+  wrap: {
     position: 'absolute',
-    bottom: 0, left: 0, right: 0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 48,
-    alignSelf: 'center',
-    width: '100%',
+    bottom: 48, left: 0, right: 0,
+    alignItems: 'center',
+    paddingHorizontal: 20,
   },
-  handle: {
-    width: 36, height: 4, borderRadius: 2,
-    backgroundColor: 'rgba(0,0,0,0.15)',
-    alignSelf: 'center',
-    marginBottom: 20,
+  card: {
+    width: '100%',
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 16, shadowOffset: { width: 0, height: 6 },
+    elevation: 12,
   },
   title: {
-    fontSize: 22, fontWeight: '800', color: '#0D0A1C',
-    marginBottom: 10, letterSpacing: -0.5,
+    fontSize: 18, fontWeight: '700', textAlign: 'center',
+    marginBottom: 8,
   },
   body: {
-    fontSize: 15, color: 'rgba(13,10,28,0.6)',
-    lineHeight: 22, marginBottom: 24,
+    fontSize: 14, textAlign: 'center', lineHeight: 20,
+    marginBottom: 20,
   },
   startBtn: {
-    paddingVertical: 14,
+    width: '100%',
+    paddingVertical: 13,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 6,
   },
   startBtnText: {
-    color: '#fff', fontSize: 15, fontWeight: '700',
+    fontSize: 14, fontWeight: '700',
   },
-  secondaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  dontShowText: {
+    fontSize: 14, color: '#9CA3B0', paddingVertical: 4,
   },
-  secondaryBtn: {
-    fontSize: 13, color: 'rgba(13,10,28,0.4)', fontWeight: '600',
+  dismissCircle: {
+    marginTop: 16,
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: '#ffffff',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
+    elevation: 8,
+  },
+  dismissX: {
+    fontSize: 14, fontWeight: '700', color: 'rgba(13,10,28,0.55)',
   },
 })

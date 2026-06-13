@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import {
   View, Text, TouchableOpacity, StyleSheet, Modal,
-  FlatList, Image, ScrollView, useWindowDimensions,
+  ScrollView, Image, useWindowDimensions,
 } from 'react-native'
 import { TTSplashCarousel, TTCarouselSlide } from '../networking/TTNetworkClient'
 import { parseColor } from './utils'
@@ -18,27 +18,32 @@ interface Props {
 export function TTSplashCarouselView({
   carousel, btnBorderRadius = 8, visible, onSlideViewed, onDone, onDismiss,
 }: Props) {
-  const { width: SCREEN_W, height: SCREEN_H } = useWindowDimensions()
+  const { width: SCREEN_W } = useWindowDimensions()
   const slides    = carousel.slides
   const pageCount = slides.length
   const bgColor   = parseColor(carousel.bgColor)   ?? '#1a1a2e'
   const textColor = parseColor(carousel.textColor)  ?? '#ffffff'
 
   const [currentPage, setCurrentPage] = useState(0)
-  const flatRef = useRef<FlatList<TTCarouselSlide>>(null)
+  const scrollRef = useRef<ScrollView>(null)
 
   // Reset to page 0 whenever carousel becomes visible
   useEffect(() => {
     if (visible) {
       setCurrentPage(0)
-      flatRef.current?.scrollToIndex({ index: 0, animated: false })
+      scrollRef.current?.scrollTo({ x: 0, animated: false })
       onSlideViewed(0)
     }
   }, [visible])
 
   function goTo(target: number) {
     if (target < 0 || target >= pageCount) return
-    flatRef.current?.scrollToIndex({ index: target, animated: true })
+    scrollRef.current?.scrollTo({ x: target * SCREEN_W, animated: true })
+    // Update state immediately so nav/dots respond without waiting for momentum end
+    if (target !== currentPage) {
+      setCurrentPage(target)
+      onSlideViewed(target)
+    }
   }
 
   const isLast = currentPage === pageCount - 1
@@ -47,20 +52,15 @@ export function TTSplashCarouselView({
     <Modal visible={visible} animationType="slide" statusBarTranslucent>
       <View style={[styles.root, { backgroundColor: bgColor }]}>
 
-        {/* ── Slides — snapToInterval is more reliable than pagingEnabled on Android ── */}
-        <FlatList
-          ref={flatRef}
-          data={slides}
+        {/* ── Slides — plain ScrollView pager: every slide stays mounted, so no
+            virtualization blanks or remount flashes, and nothing steals the
+            horizontal pan from the pager itself ── */}
+        <ScrollView
+          ref={scrollRef}
           horizontal
-          snapToInterval={SCREEN_W}
-          decelerationRate="fast"
-          disableIntervalMomentum
-          removeClippedSubviews={false}
+          pagingEnabled
           showsHorizontalScrollIndicator={false}
           scrollEventThrottle={16}
-          getItemLayout={(_, index) => ({
-            length: SCREEN_W, offset: SCREEN_W * index, index,
-          })}
           onMomentumScrollEnd={(e) => {
             const page = Math.round(e.nativeEvent.contentOffset.x / SCREEN_W)
             if (page !== currentPage) {
@@ -68,17 +68,12 @@ export function TTSplashCarouselView({
               onSlideViewed(page)
             }
           }}
-          keyExtractor={(_, i) => String(i)}
-          renderItem={({ item: slide }) => (
-            <SlideContent
-              slide={slide}
-              textColor={textColor}
-              screenW={SCREEN_W}
-              screenH={SCREEN_H}
-            />
-          )}
           style={StyleSheet.absoluteFill}
-        />
+        >
+          {slides.map((slide, i) => (
+            <SlideContent key={i} slide={slide} textColor={textColor} screenW={SCREEN_W} />
+          ))}
+        </ScrollView>
 
         {/* ── Dismiss button ── */}
         <TouchableOpacity style={styles.dismissBtn} onPress={onDismiss}>
@@ -127,21 +122,14 @@ export function TTSplashCarouselView({
 }
 
 function SlideContent({
-  slide, textColor, screenW, screenH,
-}: { slide: TTCarouselSlide; textColor: string; screenW: number; screenH: number }) {
+  slide, textColor, screenW,
+}: { slide: TTCarouselSlide; textColor: string; screenW: number }) {
   // Logo: wider container with a 3:2 ratio to accommodate most logo shapes
   const logoW = Math.min(screenW * 0.6, 320)
   const logoH = logoW * (2 / 3)
 
   return (
-    // ScrollView matches iOS — content never clips regardless of screen height,
-    // and nestedScrollEnabled lets vertical scroll coexist with horizontal FlatList swipe on Android
-    <ScrollView
-      style={{ width: screenW, height: screenH }}
-      contentContainerStyle={[styles.slide, { paddingHorizontal: 28, minHeight: screenH }]}
-      showsVerticalScrollIndicator={false}
-      nestedScrollEnabled
-    >
+    <View style={[styles.slide, { width: screenW, paddingHorizontal: 28 }]}>
       {!!slide.logoUrl && (
         <Image
           source={{ uri: slide.logoUrl }}
@@ -161,7 +149,7 @@ function SlideContent({
       {!!slide.description && (
         <Text style={[styles.slideDesc, { color: `${textColor}CC` }]}>{slide.description}</Text>
       )}
-    </ScrollView>
+    </View>
   )
 }
 
@@ -170,8 +158,8 @@ const styles = StyleSheet.create({
   slide: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 80,
-    paddingBottom: 200,
+    paddingTop: 60,
+    paddingBottom: 180,
   },
   slideTitle: {
     fontSize: 22, fontWeight: '800', textAlign: 'center',

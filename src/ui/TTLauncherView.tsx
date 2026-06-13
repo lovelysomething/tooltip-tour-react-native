@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
   View, TouchableOpacity, StyleSheet, Animated, useWindowDimensions,
-  ActivityIndicator, Text,
+  ActivityIndicator,
 } from 'react-native'
 import { TTConfig } from '../networking/TTNetworkClient'
 import { TTEventType } from '../networking/TTEventTracker'
@@ -13,6 +13,7 @@ import { TTSpotlightView } from './TTSpotlightView'
 import { TTBeaconView } from './TTBeaconView'
 import { TTStepCardView } from './TTStepCardView'
 import { TTInspectorView } from './TTInspectorView'
+import { TTIconView } from './TTIcons'
 import { parseColor } from './utils'
 
 type LauncherState = 'hidden' | 'loading' | 'carousel' | 'welcome' | 'fab' | 'session'
@@ -317,7 +318,9 @@ export function TTLauncherView() {
               x={adjustedFrame.x} y={adjustedFrame.y}
               width={adjustedFrame.width} height={adjustedFrame.height}
               stepNumber={stepIndex + 1}
-              color={fabBg}
+              beaconStyle={config.styles?.beacon?.style ?? 'numbered'}
+              bgColor={parseColor(config.styles?.beacon?.bg_color) ?? fabBg}
+              textColor={parseColor(config.styles?.beacon?.text_color) ?? '#fff'}
             />
           )}
           {/* Step card — positioned near target element */}
@@ -381,7 +384,12 @@ export function TTLauncherView() {
             activeOpacity={0.85}
           >
             <View style={styles.fabInner}>
-              <Text style={{ color: '#fff', fontSize: 16 }}>?</Text>
+              {/* Icon scales with the button — baseline 18pt icon in a 44pt frame, matching iOS */}
+              <TTIconView
+                icon={config.styles?.fab?.icon}
+                color="#fff"
+                size={Math.round(fabSize * (18 / 44))}
+              />
             </View>
           </TouchableOpacity>
         </Animated.View>
