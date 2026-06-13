@@ -146,13 +146,12 @@ const styles = StyleSheet.create({
   },
   dismissCircle: {
     marginTop: 16,
-    width: 40, height: 40, borderRadius: 20,
-    backgroundColor: '#ffffff',
+    width: 36, height: 36, borderRadius: 18,
+    // Black translucent circle with a white X — matches iOS/Android.
+    backgroundColor: 'rgba(0,0,0,0.35)',
     alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.15, shadowRadius: 10, shadowOffset: { width: 0, height: 3 },
-    elevation: 8,
   },
   dismissX: {
-    fontSize: 14, fontWeight: '700', color: 'rgba(13,10,28,0.55)',
+    fontSize: 13, fontWeight: '700', color: '#ffffff',
   },
 })

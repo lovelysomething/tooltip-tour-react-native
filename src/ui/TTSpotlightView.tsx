@@ -13,6 +13,8 @@ interface Props {
   ah: Animated.Value
   visible: boolean
   cornerRadius?: number
+  /** Breathing room around the target element, in px (matches iOS/Android ~10). */
+  padding?: number
 }
 
 /**
@@ -20,8 +22,15 @@ interface Props {
  * The cutout rect is an AnimatedRect fed by the launcher's shared animated
  * frame, so it updates the native SVG node directly with no React re-render.
  */
-export function TTSpotlightView({ ax, ay, aw, ah, visible, cornerRadius = 10 }: Props) {
+export function TTSpotlightView({ ax, ay, aw, ah, visible, cornerRadius = 12, padding = 10 }: Props) {
   const { width, height } = useWindowDimensions()
+
+  // Expand the cutout by `padding` on every side so the highlight isn't flush
+  // against the element. Done with animated math so it still glides.
+  const px = Animated.subtract(ax, padding)
+  const py = Animated.subtract(ay, padding)
+  const pw = Animated.add(aw, padding * 2)
+  const ph = Animated.add(ah, padding * 2)
 
   if (!visible) {
     return <View style={[StyleSheet.absoluteFill, styles.dimFull]} pointerEvents="none" />
@@ -35,7 +44,7 @@ export function TTSpotlightView({ ax, ay, aw, ah, visible, cornerRadius = 10 }: 
             {/* White = visible, Black = transparent in mask */}
             <Rect width={width} height={height} fill="white" />
             <AnimatedRect
-              x={ax} y={ay} width={aw} height={ah}
+              x={px} y={py} width={pw} height={ph}
               rx={cornerRadius} ry={cornerRadius}
               fill="black"
             />
