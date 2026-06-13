@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import {
-  View, TouchableOpacity, StyleSheet, Animated, useWindowDimensions,
+  View, TouchableOpacity, StyleSheet, Animated, Easing, useWindowDimensions,
   ActivityIndicator,
 } from 'react-native'
 import { TTConfig } from '../networking/TTNetworkClient'
@@ -274,8 +274,11 @@ export function TTLauncherView() {
       if (f) {
         stableCount = near(f, lastSeen) ? stableCount + 1 : 0
         lastSeen = f
-        // Two consecutive equal reads = scroll has settled; commit once.
-        if (stableCount >= 1 && !near(f, committed)) {
+        // Only commit once the target has both SETTLED (two equal reads) and is
+        // actually on-screen — committing an off-screen mid-scroll frame is what
+        // made the card park at the bottom then jump up to its final spot.
+        const onScreen = f.y + f.height > 0 && f.y < screenHeight
+        if (stableCount >= 1 && onScreen && !near(f, committed)) {
           committed = f
           setTargetFrame(f)
         }
@@ -297,21 +300,46 @@ export function TTLauncherView() {
     height: targetFrame.height,
   } : undefined
 
-  // ── Step card position: below element in top half, above in bottom half ──────
-  //    Falls back to bottom: 40 if element is off-screen (scroll in progress)
-  const cardPositionStyle: object = (() => {
-    if (!adjustedFrame) return { position: 'absolute', bottom: 40, left: 0, right: 0 }
-    const { y, height } = adjustedFrame
-    const elementBottom = y + height
-    // Off-screen (scroll still animating) → park card at bottom until frame settles
-    if (y > screenHeight || elementBottom < 0) {
-      return { position: 'absolute', bottom: 40, left: 0, right: 0 }
+  // ── Shared animated frame ────────────────────────────────────────────────────
+  //    The spotlight cutout, beacon and step card all glide off these values so
+  //    they move together (mirrors Android's single animateValueAsState rect).
+  const sx = useRef(new Animated.Value(0)).current
+  const sy = useRef(new Animated.Value(0)).current
+  const sw = useRef(new Animated.Value(0)).current
+  const sh = useRef(new Animated.Value(0)).current
+  const cardY = useRef(new Animated.Value(0)).current
+  const [cardH, setCardH] = useState(220)
+  const [overlayVisible, setOverlayVisible] = useState(false)
+  const firstFrameRef = useRef(true)
+
+  useEffect(() => {
+    if (!adjustedFrame) { setOverlayVisible(false); firstFrameRef.current = true; return }
+    const { x, y, width: w, height: h } = adjustedFrame
+    const elementBottom = y + h
+    // Decide the card side from the (settled) target so it never flips mid-glide.
+    const below = elementBottom < screenHeight * 0.55
+    const cardTop = below
+      ? elementBottom + 16
+      : Math.max(y - cardH - 16, 40)
+
+    if (firstFrameRef.current) {
+      // First step — snap into place, no glide from a stale origin.
+      firstFrameRef.current = false
+      sx.setValue(x); sy.setValue(y); sw.setValue(w); sh.setValue(h)
+      cardY.setValue(cardTop)
+      setOverlayVisible(true)
+      return
     }
-    if (elementBottom < screenHeight * 0.55) {
-      return { position: 'absolute', top: elementBottom + 16, left: 0, right: 0 }
-    }
-    return { position: 'absolute', bottom: Math.max(screenHeight - y + 16, 40), left: 0, right: 0 }
-  })()
+    setOverlayVisible(true)
+    const ease = Easing.inOut(Easing.cubic)
+    Animated.parallel([
+      Animated.timing(sx,    { toValue: x,       duration: 300, easing: ease, useNativeDriver: false }),
+      Animated.timing(sy,    { toValue: y,       duration: 300, easing: ease, useNativeDriver: false }),
+      Animated.timing(sw,    { toValue: w,       duration: 300, easing: ease, useNativeDriver: false }),
+      Animated.timing(sh,    { toValue: h,       duration: 300, easing: ease, useNativeDriver: false }),
+      Animated.timing(cardY, { toValue: cardTop, duration: 300, easing: ease, useNativeDriver: false }),
+    ]).start()
+  }, [adjustedFrame?.x, adjustedFrame?.y, adjustedFrame?.width, adjustedFrame?.height, cardH, screenHeight])
 
   // ── Inspector ──────────────────────────────────────────────────────────────
   if (inspSession) {
@@ -335,19 +363,29 @@ export function TTLauncherView() {
           pointerEvents="box-none"
           onLayout={measureSessionOverlay}
         >
-          <TTSpotlightView frame={adjustedFrame ?? null} />
-          {adjustedFrame && (
+          <TTSpotlightView ax={sx} ay={sy} aw={sw} ah={sh} visible={overlayVisible} />
+          {overlayVisible && (
             <TTBeaconView
-              x={adjustedFrame.x} y={adjustedFrame.y}
-              width={adjustedFrame.width} height={adjustedFrame.height}
+              ax={sx} ay={sy} aw={sw} ah={sh}
               stepNumber={stepIndex + 1}
               beaconStyle={config.styles?.beacon?.style ?? 'numbered'}
               bgColor={parseColor(config.styles?.beacon?.bg_color) ?? fabBg}
               textColor={parseColor(config.styles?.beacon?.text_color) ?? '#fff'}
             />
           )}
-          {/* Step card — positioned near target element */}
-          <View style={cardPositionStyle} pointerEvents="box-none">
+          {/* Step card — glides via translateY in sync with the spotlight */}
+          <Animated.View
+            style={{
+              position: 'absolute', left: 0, right: 0, top: 0,
+              transform: [{ translateY: cardY }],
+              opacity: overlayVisible ? 1 : 0,
+            }}
+            pointerEvents="box-none"
+            onLayout={e => {
+              const h = e.nativeEvent.layout.height
+              if (h > 0 && Math.abs(h - cardH) > 1) setCardH(h)
+            }}
+          >
             <TTStepCardView
               step={config.steps[stepIndex]}
               stepIndex={stepIndex}
@@ -357,7 +395,7 @@ export function TTLauncherView() {
               onBack={handleBack}
               onDismiss={handleSessionDismiss}
             />
-          </View>
+          </Animated.View>
         </View>
       )}
 
