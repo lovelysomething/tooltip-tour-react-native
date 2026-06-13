@@ -28,6 +28,11 @@ class TooltipTourClass {
   private _isSessionActive = false
   private _isInspectorActive = false
 
+  // Tours minimised this app session — in-memory so it resets on relaunch,
+  // matching iOS (Set) and Android (mutableSetOf). Persisting it (as it was)
+  // turned "minimise" into a permanent dismiss that blocked autoOpen.
+  private _sessionMinimisedIds = new Set<string>()
+
   // ── Configure ──────────────────────────────────────────────────────────────
 
   configure(options: TTConfigureOptions): void {
@@ -107,12 +112,14 @@ class TooltipTourClass {
     return this.setBool(`tt-dismissed-${configId}`, true)
   }
 
-  isSessionMinimised(configId: string): Promise<boolean> {
-    return this.getBool(`tt-minimised-${configId}`)
+  // In-memory only — session-scoped, resets on app relaunch (matches iOS/Android).
+  async isSessionMinimised(configId: string): Promise<boolean> {
+    return this._sessionMinimisedIds.has(configId)
   }
 
-  setSessionMinimised(configId: string, value: boolean): Promise<void> {
-    return this.setBool(`tt-minimised-${configId}`, value)
+  async setSessionMinimised(configId: string, value: boolean): Promise<void> {
+    if (value) this._sessionMinimisedIds.add(configId)
+    else this._sessionMinimisedIds.delete(configId)
   }
 
   showCount(configId: string): Promise<number> {
