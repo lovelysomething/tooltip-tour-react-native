@@ -84,12 +84,16 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
     })
   }
 
+  // Only highlight targets on the page the user is currently on — native-stack
+  // keeps previous screens mounted, so allFrames() would include their targets.
+  const pageFrames = () => TTViewRegistry.framesForPage(TooltipTour.currentPage)
+
   // Refresh frames whenever we enter Highlight mode
   useEffect(() => {
     if (inspMode === 'highlight') {
       measureOverlay()
       void TTViewRegistry.refreshAll().then(() => {
-        setFrames(new Map(TTViewRegistry.allFrames()))
+        setFrames(new Map(pageFrames()))
       })
     }
   }, [inspMode])
@@ -99,7 +103,7 @@ export function TTInspectorView({ sessionId, baseURL, mode, onEnd }: Props) {
     if (inspMode !== 'highlight') return
     const interval = setInterval(async () => {
       await TTViewRegistry.refreshAll()
-      setFrames(new Map(TTViewRegistry.allFrames()))
+      setFrames(new Map(pageFrames()))
     }, 600)
     return () => clearInterval(interval)
   }, [inspMode])
